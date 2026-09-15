@@ -200,6 +200,35 @@ git config core.hooksPath .githooks
 
 `skills/natural-japanese/scripts/` の `lint.py` / `textcore.py` や `fixtures/` を変更した場合は、`./dev/check-fixtures.sh` で期待検出件数（fixture 回帰）を確認してください。`skills/press-japanese/scripts/factcheck.py` と同 `fixtures/` を変更した場合は `bash dev/check-press-fixtures.sh` です（こちらはリリース時の GitHub Actions でも実行されます）。前者は該当ファイルが staged されていれば pre-commit hook が自動で実行します。タグ `v*` を push すると GitHub Actions（`.github/workflows/release.yml`）が同じチェックを実行し、`.skill` をビルドして Release に添付します。
 
+## 変更履歴 — press-japanese の追加（2026-09）
+
+このリポジトリに何を足し、既存のスキルをどう変えたかの記録です。詳細は [PR #1](https://github.com/yanagawakeigo-aitech/natural-japanese/pull/1) を参照してください。
+
+### 目的
+
+企業広報・記者・ライター・研究者が、PR TIMES 向けのプレスリリース、新聞記事のような報道文、HP掲載のお知らせ、研究成果リリースを、ソースに基づいて「盛らず・逸脱せず・創作せず」に書けるようにすること。生成AI登場前の新聞と大企業の発表文の作法を制約にし、どのモデルでも忠実さが崩れない仕組みを目指しました。
+
+### 追加したもの
+
+- **`skills/press-japanese/`（新規スキル）**。`SKILL.md` は「受け取り → 事実表 → 設計 → 執筆 → 機械検査 → 収束 → 納品」の工程で、`release / article / notice / research / check` で呼び出します。Claude Code と Codex（`.agents/skills/`、`$skill-installer`）の両方で動きます
+- **`references/`**。ソース忠実の原則（追加・逸脱・創作の禁止、【要確認】の運用）、報道・広報の文体規範（逆三角形、5W1Hのリード、記者ハンドブック準拠の数字・日付・敬称）、広報文固有のAI臭カタログ、モデル別の推奨と弱いモデル向けの分割手順、`uv` が使えない環境向けの手動チェック、before/after 事例
+- **`references/doctypes/`**。プレスリリース、報道記事（発表もの）、HP掲載のお知らせ、研究成果リリースの4つの型（必須要素・構成・品質基準・AIがやりがちな失敗・雛形）
+- **`assets/`**。事実表テンプレートと各文書タイプの骨組み。`agents/openai.yaml` は Codex 向けの表示メタデータ
+- **`scripts/factcheck.py`**。原稿の数値・日付・固有名詞・カタカナ語・英字略語・「」内の引用・最上級表現をソースと決定的に突き合わせ、ソースにない要素を列挙します。判断はしません。fixture で「忠実な原稿は unsupported 0件、捏造を9件混ぜた原稿は9件検出」を `dev/check-press-fixtures.sh` で固定しています
+- **`scripts/press_check.py`**。factcheck と広報常套句の密度と `lint.py --genre press` を一括で回します。`lint.py` は同梱せず、`natural-japanese` のものを自動で探します
+- **`corpus/reports/press-style-research.md`**。参照した規範資料（記者ハンドブック、文化庁「公用文作成の考え方」、NIE、汐留PR塾、PR TIMES の手引きと審査レポートなど）の一覧と、`--genre press` の校正の実測。再現スクリプトは `corpus/experiments/press/analyze_wikinews.py`
+- **`evals/press-japanese-evals.json` / `press-japanese-RESULTS.md`**。新スキルの description のトリガー精度評価
+
+### 既存スキル（natural-japanese）の変更
+
+- `scripts/lint.py` に `GENRE_PROFILES["press"]` を追加し、`severity_overrides`（検出を残したまま severity だけ下げる仕組み）を新設しました。生成AI登場前のニュース文（ウィキニュース日本語版、800本）で実測したところ `low_burstiness` が人間側の72.8%に発火して弁別力が逆転していたため、press では無効化しています。体言止め欠如の検出と構造層の検出器も無効化し、`translationese` 系は info に下げました。既存の fixture の期待値（25 / 33 / 0 / 0）は変わっていません
+- `references/genre-notes.md` に press 節を追加しました
+
+### そのほか
+
+- README・AGENTS.md・plugin manifest・release workflow（両スキルの `.skill` を生成）を両スキル対応にしました
+- 大企業のプレスリリース本文そのものはこの校正の環境から取得できなかったため未計測です。取得できる環境での再校正の手順を報告書に残しています
+
 ## 参考にした資料
 
 このスキルの設計は、次の公開資料に大きく影響を受けています。感謝します。
