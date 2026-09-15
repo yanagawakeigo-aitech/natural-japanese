@@ -1,0 +1,4 @@
+interface:
+  display_name: "Press Japanese"
+  short_description: "ソースに忠実な発表文・報道文を書く"
+  default_prompt: "Use $press-japanese to write a PR TIMES-style press release from the attached source memo without adding anything not in the source."

@@ -27,6 +27,9 @@ corpus/reports/*
 # skill-eval-findings.md は corpus/experiments/skill-eval/eval.py が生成する、
 # スキル適用の抽象化された所見レポート（元文書の本文・固有名詞・数値は含まない）
 !corpus/reports/skill-eval-findings.md
+# press-style-research.md は press-japanese スキルの根拠レポート（生成AI登場前のニュース文で
+# lint の press プロファイルを校正した実測と出典一覧。著作権のある本文は含まない）
+!corpus/reports/press-style-research.md
 !corpus/reports/research/
 corpus/reports/research/*
 !corpus/reports/research/prose-rhythm-literature-review.md
@@ -85,6 +88,10 @@ corpus/experiments/classifier/*
 corpus/experiments/perplexity/*
 !corpus/experiments/perplexity/perplexity_sweep.py
 !corpus/experiments/perplexity/analyze.py
+# press-style-research.md の再現スクリプト（ウィキニュース由来の公開データセットで lint を一括実行する）
+!corpus/experiments/press/
+corpus/experiments/press/*
+!corpus/experiments/press/analyze_wikinews.py
 
 # corpus/experiments/skill-eval: スキル評価ハーネス。ハーネス本体・サンプル
 # manifest・READMEはコミット対象。runs/（生成物・批評JSON、NDA含みうる）と

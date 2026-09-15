@@ -14,6 +14,16 @@
 
 文書タイプ別の型は `skills/natural-japanese/references/doctypes/`、詳しい工程は [`SKILL.md`](./skills/natural-japanese/SKILL.md) を参照してください。
 
+## press-japanese（姉妹スキル）
+
+[`press-japanese`](./skills/press-japanese/SKILL.md) は、プレスリリース（PR TIMES・ニュースリリース）、新聞記事のような報道文、HP掲載のお知らせ、研究成果リリースを、渡されたソースだけに基づいて書く・直すためのスキルです。`natural-japanese` の設計に「ソースにないことは書かない」制約を足しています。
+
+- **事実表を先に作る**: 原稿は `skills/press-japanese/assets/fact-sheet-template.md` で作った事実表にある事実だけで書く。書けない箇所は【要確認】で残す
+- **忠実性は機械で照合する**: `skills/press-japanese/scripts/factcheck.py` が数値・日付・固有名詞・引用・最上級表現をソースと突き合わせる。`press_check.py` はこれに広報常套句の密度と `lint.py --genre press` を加える
+- **生成AI登場前の作法を制約にする**: 逆三角形・5W1Hのリード・記者ハンドブック準拠の表記（`skills/press-japanese/references/press-style.md`）
+
+文書タイプ別の型は `skills/press-japanese/references/doctypes/`、モデルごとの推奨は `skills/press-japanese/references/model-workflow.md` を参照してください。
+
 ## openskills 経由で読み込む場合
 
 ```bash
@@ -32,6 +42,8 @@ Python の実行は [uv](https://docs.astral.sh/uv/) を前提にしています
 uv run skills/natural-japanese/scripts/lint.py path/to/draft.md      # 疑いの検出（--json / --genre / --baseline）
 uv run skills/natural-japanese/scripts/outline.py path/to/draft.md   # スケルトン抽出（構造レビューの入力）
 uv run skills/natural-japanese/scripts/terms.py path/to/draft.md     # 専門用語の初出・説明有無の一覧
+uv run skills/press-japanese/scripts/factcheck.py draft.md --source memo.md      # 発表文の忠実性の照合（press-japanese）
+uv run skills/press-japanese/scripts/press_check.py draft.md --source memo.md    # 忠実性 + 常套句 + lint --genre press を一括で
 ```
 
 依存関係（sudachipy, sudachidict-core）は各スクリプト冒頭の PEP 723 インラインメタデータで宣言されているため、
