@@ -413,6 +413,41 @@ GENRE_PROFILES: dict[str, dict] = {
             "numbered_phase_structure",
         },
     },
+    # press は 2026-09 に press-japanese スキル（プレスリリース・報道記事・HP掲載の
+    # お知らせ）向けに新設した（corpus/reports/press-style-research.md）。人間側の
+    # 校正集合は、生成AI登場前のニュース文（ウィキニュース日本語版、2005〜2016年が
+    # 中心、CC BY 2.5、n=800）で、大企業のプレスリリース本文はこの環境から取得
+    # できなかったため未計測（報告書に取得手順を残してある）。
+    #   - low_burstiness: ニュース文は5W1Hを詰めた長めの文が均質に並ぶ文体で、
+    #     人間側の文書発火率が72.8%（GPT-2生成側53.3%）と弁別力が逆転していた
+    #     ため無効化する。発表文も同じ文体なので同様に扱う。
+    #   - nominal_ending（体言止め欠如）: 発表文・記事本文は体言止めをほぼ使わない
+    #     （人間側の体言止め率は文の1割、見出しを除けばさらに低い）ため無効化。
+    #   - translationese / translationese_morph: 「〜することができます」は人間の
+    #     発表文でも慣用（人間4.0% vs GPT-2 9.8%で弁別力はある）。検出は残し、
+    #     severity を info に下げて「直せるなら直す」扱いにする。
+    #   - 構造層（箇条書き・太字・定型見出し・番号付き構成）: 発表文の「■背景」
+    #     「■概要」や仕様の箇条書きは正当な慣習なので business と同様に無効化。
+    #   - reading_load_sentence_max_chars: 人間のニュース文の一文は平均64字、
+    #     p90が約89字で、共通の90字では人間側の80%が発火するため100字に緩める
+    #     （それでも発火するので、読解負荷レーンは「指さし」として使う）。
+    "press": {
+        "nominal_min_chars": 3000,
+        "lead_repeat_threshold": 7,
+        "reading_load_sentence_max_chars": 100,
+        "disabled_categories": {
+            "low_burstiness",
+            "nominal_ending",
+            "high_bullet_ratio",
+            "high_bold_density",
+            "boilerplate_heading",
+            "numbered_phase_structure",
+        },
+        "severity_overrides": {
+            "translationese": "info",
+            "translationese_morph": "info",
+        },
+    },
 }
 
 
@@ -2101,7 +2136,7 @@ EXPERIMENTAL_CATEGORIES: set[str] = {
 def run_lint(
     raw_text: str, genre: str | None = None, experimental: bool = False
 ) -> tuple[list[Finding], dict]:
-    """genre: "essay" | "tech" | "business" | None。指定するとジャンル別に校正した
+    """genre: "essay" | "tech" | "business" | "press" | None。指定するとジャンル別に校正した
     閾値プロファイル（GENRE_PROFILES）を適用する。指定しない場合（デフォルト）は
     共通の保守的な閾値（モジュール定数のデフォルト値）を使う。
     experimental: True にすると EXPERIMENTAL_CATEGORIES（まだ定量校正前、または
@@ -2177,6 +2212,15 @@ def run_lint(
     disabled_categories = profile.get("disabled_categories", set())
     if disabled_categories:
         findings = [f for f in findings if f.category not in disabled_categories]
+
+    # ジャンルプロファイルによる severity の上書き（2026-09 の press プロファイルで
+    # 新設）。「そのジャンルでは慣用だが、直せるなら直したい」検出器を、無効化
+    # せずに info へ格下げするために使う。findings の件数は変わらない。
+    severity_overrides = profile.get("severity_overrides", {})
+    if severity_overrides:
+        for f in findings:
+            if f.category in severity_overrides:
+                f.severity = severity_overrides[f.category]
 
     findings.sort(key=lambda f: f.line)
 
@@ -2292,7 +2336,7 @@ def main() -> int:
         default=None,
         help=(
             "文書のジャンルに応じてコーパス校正済みの閾値プロファイルを適用する"
-            "（essay/tech/business）。未指定時は共通の保守的閾値を使う"
+            "（essay/tech/business/press）。未指定時は共通の保守的閾値を使う"
         ),
     )
     parser.add_argument(

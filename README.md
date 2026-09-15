@@ -9,6 +9,8 @@ AIと文書を作るとき、毎回プロンプトに書いている指示があ
 
 > **English summary:** An Agent Skill for writing clear, readable Japanese work documents — designing the argument before writing, constraining generation with a 12-article style constitution, then mechanically detecting "AI-smelling" patterns via sudachipy morphological analysis and iterating until the text converges.
 
+同じリポジトリに、姉妹スキル [`press-japanese`](./skills/press-japanese/SKILL.md) を同梱しています。プレスリリース（PR TIMES・ニュースリリース）、新聞記事のような報道文、HP掲載のお知らせ、研究成果リリースを、渡されたソースだけに基づいて「ソースにないことは書かない」制約で書く・直すためのスキルです。詳しくは後述の「[press-japanese](#press-japanese--発表文報道文をソースに忠実に書く)」を参照してください。
+
 ## 設計思想
 
 軸は二つあります。
@@ -101,6 +103,35 @@ npx openskills sync
 
 詳しいフローは [`SKILL.md`](./skills/natural-japanese/SKILL.md) を参照してください。
 
+## press-japanese — 発表文・報道文をソースに忠実に書く
+
+[`skills/press-japanese/`](./skills/press-japanese/) は、企業広報と記者の仕事に特化した姉妹スキルです。プレスリリース（PR TIMES 型）、報道記事（発表もの）、コーポレートサイトのお知らせ、研究成果リリースの4つの型を持ち、`natural-japanese` の設計（検出は機械、判断はAI。事後修正より生成時制約）に「ソース忠実」という制約を足しています。
+
+- **ソースにないことは書かない**。原稿の前に事実表（[`assets/fact-sheet-template.md`](./skills/press-japanese/assets/fact-sheet-template.md)）を作り、原稿はその表にある事実だけで書きます。書けない箇所は推測で埋めず【要確認】として残し、納品時に一覧で渡します（[`source-fidelity.md`](./skills/press-japanese/references/source-fidelity.md)）
+- **生成AI登場前の作法を制約にする**。逆三角形、5W1Hのリード、記者ハンドブック準拠の表記、地の文は事実で評価はコメント枠、という新聞社と大企業の広報の型に沿って書きます（[`press-style.md`](./skills/press-japanese/references/press-style.md)）。広報文に固有のAI臭（「実現します」の連発、「につきまして」、箇条書き病、捏造コメント）は [`ai-smell-in-press.md`](./skills/press-japanese/references/ai-smell-in-press.md)
+- **忠実さを機械で照合する**。[`factcheck.py`](./skills/press-japanese/scripts/factcheck.py) が原稿の数値・日付・固有名詞・カタカナ語・引用・最上級表現をソースと突き合わせ、ソースにない要素を列挙します。[`press_check.py`](./skills/press-japanese/scripts/press_check.py) はこれに広報常套句の密度と `lint.py --genre press` を加えて一括で回します
+
+```bash
+uv run skills/press-japanese/scripts/factcheck.py draft.md --source memo.md            # 忠実性の照合
+uv run skills/press-japanese/scripts/press_check.py draft.md --source memo.md         # 忠実性 + 常套句 + AI臭（lint --genre press）
+```
+
+呼び出しは `/press-japanese [release|article|notice|research] <ソース>`（書く）、`/press-japanese check <原稿> --source <ソース>`（検査のみ）。どのモデルでも忠実さが保てるよう、事実表という中間表現と機械検査を工程に組み込んでいますが、起草と判断は `claude-opus-5` 以上（Codex なら既定モデルで `model_reasoning_effort = "high"`）を推奨します。段階ごとの推奨と、弱いモデルで回すときの分割手順は [`model-workflow.md`](./skills/press-japanese/references/model-workflow.md) にあります。
+
+設計の根拠（生成AI登場前のニュース文で `lint.py` を実測して `press` プロファイルを校正した結果と、参照した規範資料の一覧）は [`corpus/reports/press-style-research.md`](./corpus/reports/press-style-research.md) を参照してください。
+
+### Codex で使う
+
+Codex CLI は `.agents/skills/`（作業ディレクトリから git ルートまで）、`~/.agents/skills/`、`~/.codex/skills/` の SKILL.md を読みます。どちらのスキルも同じ形式なので、次のいずれかで入ります。
+
+```bash
+npx skills add coji/natural-japanese        # skills/ 配下の両スキルを ~/.agents/skills/ 等へ
+# または Codex の中で
+$skill-installer install https://github.com/coji/natural-japanese/tree/main/skills/press-japanese
+```
+
+入れたら Codex を再起動します。`press_check.py` は `natural-japanese` の `lint.py` を `~/.agents/skills/natural-japanese/` などから自動で探すので、両方入れておくとAI臭の検査まで一括で動きます。
+
 ## 検査スクリプト単体の使い方
 
 検査層の3スクリプトは、スキルを介さず単体でも使えます。役割ごとに分かれています。共有基盤の `textcore.py` は3スクリプトが内部で使うだけで、直接実行するものではありません。
@@ -112,7 +143,7 @@ uv run skills/natural-japanese/scripts/lint.py path/to/draft.md
 uv run skills/natural-japanese/scripts/lint.py path/to/draft.md --json
 ```
 
-ジャンルが明確なら `--genre tech|business|essay` を指定してください。コーパス校正済みの閾値プロファイルに切り替わり、誤検知が減ります。
+ジャンルが明確なら `--genre tech|business|essay|press` を指定してください。コーパス校正済みの閾値プロファイルに切り替わり、誤検知が減ります（`press` は発表文・報道文向けで、`press-japanese` スキルが使います）。
 
 読みやすさの推敲には `--reading-load` を追加します（opt-in）。一文が長すぎる・埋もれた列挙・二重否定・漢字の連続・「の」の連鎖——この5つを severity info のみで指し示します。指定しない限り出力は従来と変わらず、AI臭さの findings や `--baseline` 差分にも混ざりません。
 
@@ -144,12 +175,22 @@ skills/natural-japanese/            # スキル本体（single source of truth�
   references/doctypes/              # 文書タイプ別の型（議事録・調査レポート・社内ガイド・メモ/DP・スライド）
   scripts/                          # textcore.py（共有基盤）/ lint.py・outline.py・terms.py（検査層エントリ）/ semantic.py（EXPERIMENTAL・opt-in）/ calibrate.py / fixtures
   assets/                           # style-profile テンプレート
+skills/press-japanese/              # 姉妹スキル: 発表文・報道文をソースに忠実に書く
+  SKILL.md                          # スキル定義（release / article / notice / research / check）
+  references/                       # ソース忠実の原則・報道/広報の文体規範・広報文のAI臭カタログ・モデル別推奨・手動チェック・事例
+  references/doctypes/              # プレスリリース・報道記事・HPのお知らせ・研究成果リリース
+  scripts/                          # factcheck.py（忠実性の照合）/ press_check.py（一括検査）/ fixtures
+  assets/                           # 事実表テンプレート・各文書タイプの骨組み
+  agents/openai.yaml                # Codex 向けの表示メタデータ
+corpus/reports/press-style-research.md  # press-japanese の調査報告（規範資料の一覧と lint の press プロファイル校正）
+evals/                 # SKILL.md description のトリガー精度評価（両スキル）
 .claude-plugin/        # Claude Code plugin manifest / marketplace 定義
 dev/check-fixtures.sh  # fixture 回帰チェック（開発用）
+dev/check-press-fixtures.sh  # factcheck.py の fixture 回帰チェック（開発用）
 .githooks/pre-commit   # lint/fixtures 変更時に fixture 回帰チェックを実行
 ```
 
-スキル本体は `skills/natural-japanese/` の1か所だけにあります。
+各スキルの本体は `skills/` 配下の1か所だけにあります。
 
 ### 開発者向け: pre-commit hook の有効化
 
@@ -157,7 +198,7 @@ dev/check-fixtures.sh  # fixture 回帰チェック（開発用）
 git config core.hooksPath .githooks
 ```
 
-`skills/natural-japanese/scripts/` の `lint.py` / `textcore.py` や `fixtures/` を変更した場合は、`./dev/check-fixtures.sh` で期待検出件数（fixture 回帰）を確認してください。該当ファイルが staged されていれば pre-commit hook が自動で実行します。タグ `v*` を push すると GitHub Actions（`.github/workflows/release.yml`）が同じチェックを実行し、`.skill` をビルドして Release に添付します。
+`skills/natural-japanese/scripts/` の `lint.py` / `textcore.py` や `fixtures/` を変更した場合は、`./dev/check-fixtures.sh` で期待検出件数（fixture 回帰）を確認してください。`skills/press-japanese/scripts/factcheck.py` と同 `fixtures/` を変更した場合は `bash dev/check-press-fixtures.sh` です（こちらはリリース時の GitHub Actions でも実行されます）。前者は該当ファイルが staged されていれば pre-commit hook が自動で実行します。タグ `v*` を push すると GitHub Actions（`.github/workflows/release.yml`）が同じチェックを実行し、`.skill` をビルドして Release に添付します。
 
 ## 参考にした資料
 

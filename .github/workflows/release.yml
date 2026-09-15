@@ -19,7 +19,9 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Run fixture regression check
-        run: dev/check-fixtures.sh
+        run: |
+          dev/check-fixtures.sh
+          bash dev/check-press-fixtures.sh
 
       - name: Build natural-japanese.skill
         run: |
@@ -28,8 +30,17 @@ jobs:
           zip -r "${GITHUB_WORKSPACE}/natural-japanese.skill" SKILL.md references scripts assets \
             -x 'scripts/__pycache__/*'
 
+      - name: Build press-japanese.skill
+        run: |
+          set -euo pipefail
+          cd skills/press-japanese
+          zip -r "${GITHUB_WORKSPACE}/press-japanese.skill" SKILL.md references scripts assets agents \
+            -x 'scripts/__pycache__/*'
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: natural-japanese.skill
+          files: |
+            natural-japanese.skill
+            press-japanese.skill
           generate_release_notes: true

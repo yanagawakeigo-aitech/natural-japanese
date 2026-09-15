@@ -31,6 +31,10 @@ corpus/
 └── reports/                calibrate.py 等の出力レポート(下記「reports の構成」参照)
 ```
 
+`corpus/experiments/press/analyze_wikinews.py` は `press-japanese` スキル向けの実験で、生成AI登場前のニュース文
+(ウィキニュース日本語版、公開データセット tanreinama/Japanese-Fakenews-Dataset、CC BY 2.5)に lint を一括で当てて
+`--genre press` の閾値を校正した(`corpus/reports/press-style-research.md`)。データセット本体はコミットしない。
+
 ## ライセンス方針
 
 | 区分 | 方針 | 理由 |
